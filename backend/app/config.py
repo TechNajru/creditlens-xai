@@ -23,3 +23,11 @@ def default_seed() -> int:
 def cors_origins() -> list[str]:
     raw = os.getenv("CREDITLENS_CORS_ORIGINS", "http://localhost:3000")
     return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+def max_upload_bytes() -> int:
+    return int(os.getenv("CREDITLENS_MAX_UPLOAD_BYTES", str(2_000_000)))
+
+
+def max_upload_rows() -> int:
+    return int(os.getenv("CREDITLENS_MAX_UPLOAD_ROWS", "5000"))

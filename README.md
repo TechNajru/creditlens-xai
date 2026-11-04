@@ -11,7 +11,8 @@ are trained on **synthetic** data, so their metrics say nothing about real borro
 | Stage | Content | State |
 |---|---|---|
 | 1 | Shared features, simulation model, calibration, evaluation, FastAPI `/predict` | Implemented, backend tests pass (30) |
-| 2 | Real public dataset (Track A), CSV upload + cash-flow engine | Not started |
+| 2A | CSV upload, validation, categories + corrections, cash-flow analytics (Track B) | Implemented, 69 backend tests pass in total |
+| 2B | Real public dataset (Track A) + real-data model | Waiting for dataset download + licence check |
 | 3 | SHAP explanations, model card, result UI | Not started |
 | 4 | Counterfactuals, fairness audit | Not started |
 | 5 | Auth, database, reviewer workflow, audit trail | Not started |
@@ -34,6 +35,12 @@ If activation is blocked: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
 $body = '{"monthly_income":50000,"loan_amount":300000,"tenure_months":36,"annual_interest_rate":12,"existing_emi":5000,"age":32,"employment_years":5,"num_existing_loans":1,"credit_history_months":null}'
 Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType "application/json" -Body $body
 ```
+
+## Stage 2 endpoints (no auth yet — do not expose publicly)
+- `POST /api/v1/uploads/preview` — multipart `file` (+ optional `mapping`, `corrections` JSON) -> parsed rows, issues, categories
+- `POST /api/v1/cashflow/analyze` — same inputs -> coverage, monthly table, metrics, recurring income, missingness
+- `GET /api/v1/transactions/categories`
+Samples are in `sample_data/` (all synthetic). Method: `docs/cashflow_methodology.md`.
 
 ## Key design points
 - One feature function (`app/features.py`) is used by training and inference (fixes the old EMI-ratio mismatch).
