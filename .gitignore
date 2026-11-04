@@ -1,0 +1,26 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Secrets / local config
+.env
+.env.*
+!.env.example
+# Generated artifacts (reproduce with: python -m app.train)
+backend/models/*
+!backend/models/.gitkeep
+backend/reports/*
+!backend/reports/.gitkeep
+backend/data/*
+!backend/data/.gitkeep
+*.db
+*.sqlite3
+# Frontend
+node_modules/
+.next/
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
