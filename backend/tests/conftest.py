@@ -2,6 +2,8 @@ import os
 
 import pytest
 
+os.environ.setdefault("CREDITLENS_GLOBAL_SHAP_ROWS", "40")  # keep tests fast
+
 from app import train as train_module
 
 

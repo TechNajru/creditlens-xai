@@ -10,7 +10,9 @@ from pathlib import Path
 import joblib
 
 from . import config
+from .explain import safe_explanation
 from .features import build_features_single, feature_schema, FEATURE_COLUMNS
+from .reason_codes import describe_loan
 
 
 class ModelNotAvailableError(RuntimeError):
@@ -18,8 +20,9 @@ class ModelNotAvailableError(RuntimeError):
 
 
 class ModelBundle:
-    def __init__(self, pipeline, calibrator, metadata: dict):
+    def __init__(self, pipeline, calibrator, metadata: dict, background=None):
         self.pipeline, self.calibrator, self.metadata = pipeline, calibrator, metadata
+        self.background = background  # training-row sample used by the explainer
 
 
 def load_bundle(models_dir: Path | None = None) -> ModelBundle:
@@ -32,10 +35,10 @@ def load_bundle(models_dir: Path | None = None) -> ModelBundle:
             meta["feature_schema"]["version"] != feature_schema()["version"]:
         raise ModelNotAvailableError(
             "Model feature schema does not match the application's schema. Retrain the model.")
-    return ModelBundle(data["pipeline"], data["calibrator"], meta)
+    return ModelBundle(data["pipeline"], data["calibrator"], meta, data.get("background"))
 
 
-def predict_one(bundle: ModelBundle, raw_input: dict) -> dict:
+def predict_one(bundle: ModelBundle, raw_input: dict, detail: str = "summary") -> dict:
     X = build_features_single(raw_input)  # same function used in training
     raw_p = float(bundle.pipeline.predict_proba(X)[:, 1][0])
     cal_p = float(bundle.calibrator.transform([raw_p])[0])
@@ -55,7 +58,6 @@ def predict_one(bundle: ModelBundle, raw_input: dict) -> dict:
             "total_emi_to_income": float(row["total_emi_to_income"]),
             "credit_history_missing": bool(row["credit_history_missing"]),
         },
-        "explanation": {"status": "unavailable",
-                        "reason": "Explanations (SHAP) are implemented in a later stage."},
+        "explanation": safe_explanation(bundle, X, describe_loan, detail),
         "limitations": meta["limitations"],
     }

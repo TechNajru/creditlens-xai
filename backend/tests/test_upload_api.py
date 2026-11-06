@@ -66,4 +66,6 @@ def test_logs_do_not_contain_raw_transaction_text(caplog):
 
 
 def test_categories_endpoint():
-    assert "income_salary" in client.get("/api/v1/transactions/categories").json()["categories"]
+    body = client.get("/api/v1/transactions/categories").json()
+    assert "income_salary" in body["categories"] and "income_salary" in body["credit"]
+    assert "rent" in body["debit"] and "rent" not in body["credit"]

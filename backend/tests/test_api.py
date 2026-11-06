@@ -17,7 +17,7 @@ def test_valid_prediction(trained_dir):
     body = r.json()
     assert 0 <= body["default_probability_simulated"] <= 1
     assert "SYNTHETIC" in body["data_provenance"]
-    assert body["explanation"]["status"] == "unavailable"  # honest: no fake explanations yet
+    assert body["explanation"]["status"] == "available" and body["explanation"]["reason_codes"]
     assert body["derived_values"]["total_emi_to_income"] > 0
 
 

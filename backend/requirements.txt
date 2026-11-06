@@ -11,3 +11,6 @@ pydantic==2.14.2
 pytest==9.2.0
 httpx==0.28.1
 python-multipart==0.0.33
+xlrd==2.0.2
+shap==0.54.1
+fairlearn==0.15.0

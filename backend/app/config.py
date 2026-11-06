@@ -31,3 +31,11 @@ def max_upload_bytes() -> int:
 
 def max_upload_rows() -> int:
     return int(os.getenv("CREDITLENS_MAX_UPLOAD_ROWS", "5000"))
+
+
+PUBLIC_SCHEMA_VERSION = "public-1.0.0"
+PUBLIC_ARTIFACT_NAME = "creditlens_public_model.joblib"
+
+
+def data_dir() -> Path:
+    return Path(os.getenv("CREDITLENS_DATA_DIR", BASE_DIR / "data"))

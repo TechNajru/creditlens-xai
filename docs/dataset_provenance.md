@@ -7,11 +7,35 @@
   because the rule is logistic. This is an artefact of the simulation, not evidence about real lending.
 - Used for: pipeline engineering, calibration/evaluation machinery, API and UI workflows.
 
-## Track A: public labelled credit dataset (NOT yet implemented)
-Status: dataset not selected. Candidates to verify before use (licence, field definitions,
-outcome definition, access terms must be read from the official source page, not assumed):
-- UCI "Default of Credit Card Clients" (Taiwan): default-next-month label, 6 months of payment history.
-- UCI "Statlog (German Credit Data)": good/bad label (NOT a fixed-horizon default), 1,000 rows.
-Whichever is chosen, document: source URL, licence, outcome definition, prediction horizon,
-whether thin-file applicants can be identified, and known limitations.
-No transaction features may be attached to these rows (no joint labelled dataset exists).
+## Track A: public labelled dataset (implemented in Stage 2B)
+**UCI "Default of Credit Card Clients"** — I-Cheng Yeh (2009)
+- Page: https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients
+- DOI: https://doi.org/10.24432/C55S3H
+- **Licence: CC BY 4.0** (checked on the official UCI page). Attribution is required; see the README.
+- 30,000 clients, 23 features, no missing values (confirmed on the file we used).
+- Population: credit-card clients in Taiwan, April–September 2005; amounts in NT dollars.
+- **Label:** `default payment next month` (1 = yes). Horizon: one month after the 6-month window.
+  This is credit-card payment default, **not** loan default and **not** a good/bad judgement.
+
+### Verified on the actual file
+- 30,000 rows, 25 columns, 0 nulls, 0 duplicate IDs, positive rate 22.12% (6,636 defaults).
+- The file has an extra `X1..X23` row above the real header; the loader handles it.
+- The target column is named `default payment next month` (spaces) in the .xls.
+- 35 rows are identical except for ID. They are distinct clients, so they are kept.
+
+### Undocumented values (we assign them NO meaning)
+- `PAY_0..PAY_6`: UCI documents -1 (paid duly) and 1..9 (months delayed). The data also contains **-2 and 0**,
+  which UCI does not define. Community write-ups guess meanings; we do not rely on them. Codes are used as given,
+  and `months_delayed` counts only documented delay codes (>= 1).
+- `EDUCATION` contains 0, 5, 6 (UCI documents 1-4 plus "unknown"); `MARRIAGE` contains 0. These are audit-only columns.
+- ~600 `BILL_AMT` values per month are negative (credit balances). Kept, not clipped.
+
+### Limitations that matter
+- Single snapshot: **no temporal split is possible**; metrics come from random stratified splits.
+- **Thin-file applicants cannot be identified** (every client has 6 months of history). Limited-history
+  work will be labelled "limited-information experiments", not validated thin-file lending.
+- Different product, country, currency and year from the loan-application schema: the two models are never mixed.
+- No transaction features are attached to these rows (no joint labelled dataset exists).
+
+Citation: Yeh, I-C. (2009). Default of Credit Card Clients [Dataset]. UCI Machine Learning Repository.
+https://doi.org/10.24432/C55S3H

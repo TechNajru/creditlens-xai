@@ -35,6 +35,7 @@ from sklearn.preprocessing import StandardScaler
 
 from . import config
 from .calibration import CALIBRATORS
+from .explain import fit_explanation_assets
 from .features import FEATURE_COLUMNS, TARGET_COLUMN, build_features, feature_schema
 from .synthetic import DATA_PROVENANCE, generate_synthetic_applications
 
@@ -151,6 +152,7 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
     fig.savefig(reports_dir / "calibration_test.png", dpi=120)
     plt.close(fig)
 
+    background, global_importance = fit_explanation_assets(pipe, X_tr, X_va, seed)
     model_version = f"sim-{best['model']}-{best['calibration']}-seed{seed}-fs{config.FEATURE_SCHEMA_VERSION}"
     metadata = {
         "model_version": model_version,
@@ -167,6 +169,7 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
         "library_versions": {"python": platform.python_version(), "scikit-learn": sklearn.__version__,
                              "pandas": pd.__version__, "numpy": np.__version__},
         "selection_criterion": "lowest validation Brier score across model x calibrator combinations",
+        "global_importance": global_importance,
         "limitations": [
             "Trained on synthetic data: performance says nothing about real borrowers.",
             "Not a credit-bureau score and not a loan-approval probability.",
@@ -174,7 +177,7 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
             "Thresholds shown in reports are experimental.",
         ],
     }
-    joblib.dump({"pipeline": pipe, "calibrator": cal, "metadata": metadata},
+    joblib.dump({"pipeline": pipe, "calibrator": cal, "metadata": metadata, "background": background},
                 models_dir / config.ARTIFACT_NAME)
 
     report = {
@@ -188,6 +191,7 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
         "test_threshold_tradeoffs": [threshold_metrics(y_te, p_te, t) for t in THRESHOLDS],
         "majority_baseline": baseline,
         "calibration_curve_test": {"mean_predicted": mean_pred.tolist(), "fraction_positive": frac_pos.tolist()},
+        "global_importance": global_importance,
         "notes": "Test split used once, after selection on the validation split.",
     }
     (reports_dir / "evaluation.json").write_text(json.dumps(report, indent=2))
