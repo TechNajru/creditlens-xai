@@ -18,7 +18,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
   );
 }
 
-function Analysis({ a }: { a: AnalyzeResponse }) {
+export function Analysis({ a }: { a: AnalyzeResponse }) {
   const m = a.metrics;
   return (
     <section aria-labelledby="analysis-h" className="space-y-4">

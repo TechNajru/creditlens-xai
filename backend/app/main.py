@@ -12,7 +12,7 @@ import logging
 from typing import Literal
 
 import joblib
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,12 @@ from .categorizer import ALL_CATEGORIES, CREDIT_CATEGORIES, DEBIT_CATEGORIES, as
 from .cashflow import analyze
 from .ingestion import UploadError, parse_csv
 from .features import InvalidInputError, LIMITS
+from .deps import authenticated_user, staff_user
+from .routes_admin import router as admin_router
+from .routes_applications import router as applications_router
+from .routes_auth import router as auth_router
+from .routes_reviews import router as reviews_router
+from .schemas import LoanApplication
 from .policy import DemoPolicy
 from .predict import ModelNotAvailableError, load_bundle, predict_one
 from .scenarios import ScenarioError, counterfactuals, what_if
@@ -32,22 +38,23 @@ logger = logging.getLogger("creditlens")  # never log raw financial inputs
 app = FastAPI(title="CreditLens XAI API", version="0.1.0",
               description="Educational credit-risk decision-support prototype. Not a lender, "
                           "not a credit score, not a loan approval.")
-app.add_middleware(CORSMiddleware, allow_origins=config.cors_origins(),
-                   allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
+app.add_middleware(CORSMiddleware, allow_origins=config.cors_origins(), allow_credentials=True,
+                   allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type", "X-CSRF-Token"])
 
 
-class LoanApplication(BaseModel):
-    monthly_income: float = Field(gt=0, le=LIMITS["monthly_income"][1])
-    loan_amount: float = Field(gt=0, le=LIMITS["loan_amount"][1])
-    tenure_months: int = Field(ge=LIMITS["tenure_months"][0], le=LIMITS["tenure_months"][1])
-    annual_interest_rate: float = Field(ge=0, le=LIMITS["annual_interest_rate"][1])
-    existing_emi: float = Field(ge=0, le=LIMITS["existing_emi"][1])
-    age: int = Field(ge=LIMITS["age"][0], le=LIMITS["age"][1])
-    employment_years: float = Field(ge=0, le=LIMITS["employment_years"][1])
-    num_existing_loans: int = Field(ge=0, le=LIMITS["num_existing_loans"][1])
-    credit_history_months: float | None = Field(
-        default=None, ge=0, le=LIMITS["credit_history_months"][1],
-        description="Leave null if unknown. Unknown is NOT the same as zero.")
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Cache-Control"] = "no-store"          # API responses can contain personal data
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+app.include_router(auth_router)
+app.include_router(applications_router)
+app.include_router(reviews_router)
+app.include_router(admin_router)
 
 
 def _bundle():
@@ -62,7 +69,7 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/api/v1/models/active")
+@app.get("/api/v1/models/active", dependencies=[Depends(authenticated_user)])
 def active_model():
     meta = _bundle().metadata
     return {k: meta[k] for k in ("model_version", "model_name", "calibration_method",
@@ -83,12 +90,12 @@ def _score(application: LoanApplication, detail: str = "summary") -> dict:
     return result
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(authenticated_user)])
 def predict_compat(application: LoanApplication, detail: Detail = Query("summary")):
     return _score(application, detail)
 
 
-@app.post("/api/v1/assessments/predict")
+@app.post("/api/v1/assessments/predict", dependencies=[Depends(authenticated_user)])
 def predict_v1(application: LoanApplication, detail: Detail = Query("summary")):
     return _score(application, detail)
 
@@ -127,12 +134,12 @@ def _rows(tx) -> list[dict]:
              "confidence": r.confidence} for r in tx.itertuples()]
 
 
-@app.get("/api/v1/transactions/categories")
+@app.get("/api/v1/transactions/categories", dependencies=[Depends(authenticated_user)])
 def categories():
     return {"categories": ALL_CATEGORIES, "credit": CREDIT_CATEGORIES, "debit": DEBIT_CATEGORIES}
 
 
-@app.post("/api/v1/uploads/preview")
+@app.post("/api/v1/uploads/preview", dependencies=[Depends(authenticated_user)])
 async def upload_preview(file: UploadFile = File(...), mapping: str | None = Form(None),
                          corrections: str | None = Form(None)):
     parsed = await _read_and_parse(file, mapping)
@@ -146,7 +153,7 @@ async def upload_preview(file: UploadFile = File(...), mapping: str | None = For
                     "by resubmitting with a 'corrections' JSON object {key: category}."}
 
 
-@app.post("/api/v1/cashflow/analyze")
+@app.post("/api/v1/cashflow/analyze", dependencies=[Depends(authenticated_user)])
 async def cashflow_analyze(file: UploadFile = File(...), mapping: str | None = Form(None),
                            corrections: str | None = Form(None)):
     parsed = await _read_and_parse(file, mapping)
@@ -178,7 +185,7 @@ def _public_bundle():
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.get("/api/v1/models/public/active")
+@app.get("/api/v1/models/public/active", dependencies=[Depends(authenticated_user)])
 def public_model_info():
     meta = _public_bundle().metadata
     return {k: meta[k] for k in ("model_version", "model_name", "calibration_method", "calibration_evaluated",
@@ -186,7 +193,7 @@ def public_model_info():
                                  "excluded_from_model_inputs", "limitations", "trained_at_utc")}
 
 
-@app.post("/api/v1/assessments/predict-public")
+@app.post("/api/v1/assessments/predict-public", dependencies=[Depends(authenticated_user)])
 def predict_public_route(client: PublicClient, detail: Detail = Query("summary")):
     bundle = _public_bundle()
     try:
@@ -204,17 +211,20 @@ _TRACKS = {"simulation": ("evaluation.json", config.ARTIFACT_NAME),
            "public": ("evaluation_public.json", config.PUBLIC_ARTIFACT_NAME)}
 
 
-@app.get("/api/v1/models/{track}/evaluation")
+@app.get("/api/v1/models/{track}/evaluation", dependencies=[Depends(authenticated_user)])
 def model_evaluation(track: Literal["simulation", "public"]):
     report_name, artifact_name = _TRACKS[track]
     path = config.reports_dir() / report_name
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"No evaluation report for '{track}'. Train the model first.")
     report = json.loads(path.read_text())
-    meta_path = config.models_dir() / artifact_name
-    limitations = []
-    if meta_path.exists():
-        limitations = joblib.load(meta_path)["metadata"].get("limitations", [])
+    # Limitations are stored in the report at training time. Older reports lack them; only then fall back to the artifact.
+    limitations = report.get("limitations")
+    if limitations is None:
+        limitations = []
+        meta_path = config.models_dir() / artifact_name
+        if meta_path.exists():
+            limitations = joblib.load(meta_path)["metadata"].get("limitations", [])
     return {"track": track, "report": report, "limitations": limitations}
 
 
@@ -250,7 +260,7 @@ def _policy(override: PolicyOverride | None) -> DemoPolicy:
     return DemoPolicy(**values)
 
 
-@app.post("/api/v1/scenarios/what-if")
+@app.post("/api/v1/scenarios/what-if", dependencies=[Depends(authenticated_user)])
 def scenarios_what_if(req: WhatIfRequest):
     bundle = _bundle()
     try:
@@ -262,7 +272,7 @@ def scenarios_what_if(req: WhatIfRequest):
     return result
 
 
-@app.post("/api/v1/scenarios/counterfactuals")
+@app.post("/api/v1/scenarios/counterfactuals", dependencies=[Depends(authenticated_user)])
 def scenarios_counterfactuals(req: CounterfactualRequest):
     bundle = _bundle()
     try:
@@ -286,11 +296,11 @@ def _read_report(name: str, hint: str) -> dict:
     return json.loads(path.read_text())
 
 
-@app.get("/api/v1/fairness/public")
+@app.get("/api/v1/fairness/public", dependencies=[Depends(staff_user)])
 def fairness_public():
     return _read_report("fairness_public.json", "python -m app.fairness")
 
 
-@app.get("/api/v1/models/public/experiments")
+@app.get("/api/v1/models/public/experiments", dependencies=[Depends(authenticated_user)])
 def public_experiments():
     return _read_report("experiments_public.json", "python -m app.experiments")

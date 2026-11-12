@@ -4,22 +4,22 @@ Next.js (App Router) + TypeScript + Tailwind + Recharts. Talks to the FastAPI ba
 
 ## Run (Windows PowerShell), from this folder
 ```powershell
-copy .env.example .env.local      # API address; default http://127.0.0.1:8000
+copy .env.example .env.local      # API address; default http://localhost:8000
 npm install
 npm run dev                        # http://localhost:3000
 ```
-Start the backend first (see the root README). **Open the app at `http://localhost:3000`** — the backend only
-allows that origin by default. If you use another address, set `CREDITLENS_CORS_ORIGINS` for the backend.
+Start the backend first (see the root README). **Open the app at `http://localhost:3000` and keep the API on `localhost` too**:
+the session cookie is `SameSite=Lax`, so `127.0.0.1` and `localhost` count as different sites and login would not stick.
 
 ## Checks
 ```powershell
 npm run typecheck
 npm run lint
-npm test          # 24 component/unit tests (Vitest + Testing Library)
+npm test          # 86 component/unit tests (Vitest + Testing Library)
 npm run build
 ```
 
 ## Pages
-`/` landing · `/assess` loan simulation · `/assess-public` UCI model · `/cashflow` upload + corrections + summary · `/models` evaluation dashboard.
-No hard-coded predictions: results come from the API. Example buttons are labelled fictional demo inputs.
-Login, history, scenarios and reviewer screens arrive in later stages.
+Public: `/` `/login` `/register`. Applicant: `/dashboard` `/applications/new` `/applications/[id]` plus the tools (`/assess`, `/assess-public`, `/scenarios`, `/cashflow`, `/models`).
+Reviewer: `/review` `/review/[id]` (and `/models`, `/fairness`). Admin: `/admin`.
+Route guards in the UI are a convenience; the API enforces every permission. The CSRF token is held in memory only.

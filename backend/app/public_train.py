@@ -77,7 +77,8 @@ def train_public(models_dir: Path | None = None, reports_dir: Path | None = None
     raw, y_s, audit, meta = data if data is not None else load_public_dataset(data_path)
     X = build_public_features(raw)
     y = y_s.to_numpy()
-    assert list(X.columns) == PUBLIC_FEATURE_COLUMNS and not set(AUDIT_COLUMNS) & set(X.columns)
+    if list(X.columns) != PUBLIC_FEATURE_COLUMNS or set(AUDIT_COLUMNS) & set(X.columns):    # explicit check: asserts vanish under python -O
+        raise ValueError("Leakage guard failed: sensitive audit columns are in the features, or the feature order changed.")
     sp = split_indices(y, seed)
     X_tr, y_tr = X.iloc[sp["train"]], y[sp["train"]]
     X_ca, y_ca = X.iloc[sp["calibration"]], y[sp["calibration"]]
@@ -157,6 +158,7 @@ def train_public(models_dir: Path | None = None, reports_dir: Path | None = None
         "majority_baseline": baseline,
         "calibration_curve_test": {"mean_predicted": mean_p.tolist(), "fraction_positive": frac.tolist()},
         "global_importance": global_importance,
+        "limitations": metadata["limitations"],
         "notes": "Test split used once, after selection on the validation split.",
     }
     (reports_dir / "evaluation_public.json").write_text(json.dumps(report, indent=2))

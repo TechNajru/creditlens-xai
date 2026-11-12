@@ -14,3 +14,7 @@ python-multipart==0.0.33
 xlrd==2.0.2
 shap==0.54.1
 fairlearn==0.15.0
+sqlalchemy==2.1.8
+alembic==1.20.1
+argon2-cffi==25.1.0
+psycopg[binary]==3.3.8

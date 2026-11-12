@@ -183,3 +183,65 @@ export interface ExperimentsReport {
   label: string; data_provenance: string; evaluated_on: string; n_test: number; recipe: string;
   baseline_constant_brier: number; variants: ExperimentVariant[]; caveats: string[];
 }
+
+/* ---------------- Stage 5: accounts, applications, review, admin ---------------- */
+export type Role = "applicant" | "reviewer" | "admin";
+export interface User { id: number; email: string; role: Role }
+export interface MeResponse { user: User; csrf_token: string }
+export type AppStatus = "draft" | "submitted" | "validation" | "assessed" | "manual_review" | "info_requested" | "final_demo_decision";
+
+export interface AppSummary {
+  id: string; status: AppStatus; created_at: string; updated_at: string; submitted_at: string | null;
+  loan_amount: number | null; tenure_months: number | null; probability: number | null; decision: string | null;
+}
+export interface InfoRequestView { id: number; message: string; created_at: string; response: string | null; responded_at: string | null }
+export interface UploadInfo {
+  filename: string; size_bytes: number; rows_total: number; rows_valid: number; rows_with_errors: number;
+  duplicates_excluded: number; date_format: string | null; issues: UploadIssue[]; uploaded_at: string;
+}
+export interface AssessmentView {
+  id: number; is_preview: boolean; created_at: string; model_version: string; feature_schema_version: string;
+  policy_version: string; policy_result: PolicyResult; result: PredictionResponse;
+}
+export interface FinalDecision { id: number; decision: string; reason: string; created_at: string;
+  policy_recommendation?: string; is_override?: boolean; override_reason?: string | null }
+export interface TimelineEvent { ts: string; action: string; details: Record<string, unknown> }
+export interface ApplicantApplication extends AppSummary {
+  loan_inputs: Record<string, number | null>; upload: UploadInfo | null; editable: boolean;
+  assessment: AssessmentView | null; info_requests: InfoRequestView[]; final_decision: FinalDecision | null;
+  timeline: TimelineEvent[];
+}
+export interface StoredTx {
+  id: number; key: string; row: number; date: string; description: string; amount: number;
+  direction: "credit" | "debit"; category: string; category_source: string; confidence: "high" | "medium" | "low";
+}
+export interface TransactionsResponse { transactions: StoredTx[]; credit_categories: string[]; debit_categories: string[] }
+export interface UploadResponse { upload: UploadInfo; category_issues: CategoryIssue[]; transactions: StoredTx[]; truncated: boolean }
+
+export interface ReviewQueueRow extends AppSummary { applicant_ref: string; review_reason_codes: string[]; policy_passes: boolean | null }
+export interface ReviewDetailData extends AppSummary {
+  applicant_ref: string; loan_inputs: Record<string, number | null>;
+  review_reasons: { code: string; message: string }[];
+  input_quality: { credit_history: string; cashflow_provided: boolean; cashflow_sufficient: boolean | null;
+    upload_rows_with_errors: number | null; upload_duplicates_excluded: number | null; low_confidence_value_share: number | null };
+  upload: UploadInfo | null; transactions: StoredTx[]; cashflow: AnalyzeResponse | null;
+  assessment: AssessmentView | null; preview_assessments: number; policy_recommendation: string | null;
+  info_requests: InfoRequestView[]; decisions: FinalDecision[];
+  timeline: { id: number; ts: string; actor_role: string; action: string; details: Record<string, unknown> }[];
+}
+
+export interface AdminUser { id: number; email: string; role: Role; is_active: boolean; created_at: string; applications: number }
+export interface AdminModel {
+  id: number; track: "simulation" | "public"; version: string; artifact_sha256: string; is_active: boolean;
+  registered_at: string; activated_at: string | null; summary: Record<string, unknown>;
+}
+export interface MonitoringData {
+  applications_by_status: Record<string, number>;
+  assessments: { official: number; preview: number; official_by_model_version: Record<string, number> };
+  prediction_distribution: { n: number; mean: number; p10: number; p50: number; p90: number; histogram_10_bins: number[] } | null;
+  input_missingness: { submitted_applications: number; credit_history_unknown_share: number | null; no_cashflow_file_share: number | null };
+  review: { decisions: number; approved_share: number | null; override_share: number | null };
+  notes: string[];
+}
+export interface AuditEventView { id: number; ts: string; actor_role: string; actor_id: number | null; action: string;
+  entity_type: string; entity_id: string; application_id: string | null; details: Record<string, unknown> }

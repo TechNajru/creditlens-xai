@@ -132,3 +132,20 @@ def test_model_card_is_generated_from_artifacts(trained_dir, public_run, tmp_pat
     assert "Out of scope" in card and "Brier" in card
     pub = render_model_card("public", models, trained_dir / "public_reports")
     assert "CC BY 4.0" in pub and "## Citation" in pub and "https://doi.org/10.0000/fixture" in pub
+
+
+def test_evaluation_limitations_come_from_the_report_without_loading_the_model_file(trained_dir, tmp_path, monkeypatch):
+    import json
+    from app import main as main_module
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    rep = json.loads((trained_dir / "reports" / "evaluation.json").read_text())
+    assert rep["limitations"], "training now stores limitations in the report"
+    (reports / "evaluation.json").write_text(json.dumps(rep))
+    monkeypatch.setenv("CREDITLENS_REPORTS_DIR", str(reports))
+
+    def boom(*a, **k):
+        raise AssertionError("the model file must not be deserialised just to read limitations")
+    monkeypatch.setattr(main_module.joblib, "load", boom)
+    body = client.get("/api/v1/models/simulation/evaluation").json()
+    assert body["limitations"] == rep["limitations"]

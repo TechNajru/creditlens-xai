@@ -25,8 +25,8 @@ class ModelBundle:
         self.background = background  # training-row sample used by the explainer
 
 
-def load_bundle(models_dir: Path | None = None) -> ModelBundle:
-    path = Path(models_dir or config.models_dir()) / config.ARTIFACT_NAME
+def load_bundle_from_path(path: Path) -> ModelBundle:
+    path = Path(path)
     if not path.exists():
         raise ModelNotAvailableError("Model artifact not found. Train it first: python -m app.train")
     data = joblib.load(path)
@@ -36,6 +36,10 @@ def load_bundle(models_dir: Path | None = None) -> ModelBundle:
         raise ModelNotAvailableError(
             "Model feature schema does not match the application's schema. Retrain the model.")
     return ModelBundle(data["pipeline"], data["calibrator"], meta, data.get("background"))
+
+
+def load_bundle(models_dir: Path | None = None) -> ModelBundle:
+    return load_bundle_from_path(Path(models_dir or config.models_dir()) / config.ARTIFACT_NAME)
 
 
 def predict_one(bundle: ModelBundle, raw_input: dict, detail: str = "summary") -> dict:

@@ -1,4 +1,4 @@
-# Model card — Loan-application simulation model
+# Model card â€” Loan-application simulation model
 
 > Educational prototype. Not a lender, not a credit score, not a loan approval.
 
@@ -6,8 +6,8 @@
 - Version: `sim-logistic_regression-sigmoid-seed42-fs1.0.0`
 - Algorithm: logistic_regression; probability calibration: sigmoid (calibration evaluated: yes)
 - Feature schema: 1.0.0 (14 features)
-- Trained (UTC): 2026-11-06T17:39:41+00:00; seed 42
-- Libraries: Python 3.14.7, scikit-learn 1.9.1, pandas 3.1.0, numpy 2.5.4
+- Trained (UTC): 2026-11-04T19:56:04+00:00; seed 42
+- Libraries: Python 3.12.3, scikit-learn 1.9.1, pandas 3.1.0, numpy 2.5.4
 
 ## Intended use
 Demonstrating the pipeline (features, calibration, evaluation, explanations) on SYNTHETIC loan applications.

@@ -1,121 +1,94 @@
 # CreditLens XAI
 
-An **educational** credit-risk decision-support prototype: shared feature engineering, calibrated
-risk modelling, evaluation reports and an API — with explainability, fairness, counterfactuals,
-cash-flow analysis and reviewer workflows planned in later stages.
+**A calibrated, explainable and fairness-aware credit-risk decision-support platform** with cash-flow analysis, constrained counterfactuals, a human reviewer workflow and a tamper-evident audit trail.
 
-**Honest scope:** not a bank, not a lender, not a credit score, not a loan approval. Stage 1 models
-are trained on **synthetic** data, so their metrics say nothing about real borrowers.
+> **Educational prototype.** Not a bank, not a lender, not a credit-bureau score, and not validated for real lending. The loan model is trained on **synthetic** data; the optional public-data model reflects **2005 Taiwan credit-card clients** only. Nothing here makes or guarantees a real credit decision.
 
-## Status
-| Stage | Content | State |
+| | | |
 |---|---|---|
-| 1 | Shared features, simulation model, calibration, evaluation, FastAPI `/predict` | Implemented, backend tests pass (30) |
-| 2A | CSV upload, validation, categories + corrections, cash-flow analytics (Track B) | Implemented, 69 backend tests pass in total |
-| 2B | Real public dataset (UCI, Track A), separate public-data model, calibration + evaluation | Implemented, 93 backend tests pass |
-| 3 | SHAP explanations + reason codes, model cards, evaluation dashboard, Next.js frontend (5 pages) | Implemented: 106 backend + 24 frontend tests pass |
-| 4 | What-if + constrained counterfactuals, policy engine, Fairlearn audit, limited-information experiments, 3 new pages | Implemented: 151 backend + 39 frontend tests pass |
-| 5 | Auth, database, reviewer workflow, audit trail | Not started |
-| 6 | E2E test, security review, docs, deploy | Not started |
+| ![Landing](docs/screenshots/01_landing.png) | ![Assessment and explanation](docs/screenshots/05_assessment_explanation.png) | ![Reviewer override rule](docs/screenshots/12_override_required.png) |
+| ![Calibration](docs/screenshots/07_calibration.png) | ![Fairness audit](docs/screenshots/13_fairness.png) | ![Audit chain](docs/screenshots/17_admin_audit.png) |
+
+*(All screenshots are from the running application using fictional data. More are in `docs/screenshots/`.)*
+
+## What it does
+- **Calibrated risk model.** Leak-free pipeline, four-way split (train / calibration / validation / untouched test), three model families x three calibration options compared on validation Brier score, results with baselines and reliability curves.
+- **Verified explanations.** SHAP contributions must add up to the model score or the explanation is withheld; plain-language reason codes; applicant view vs reviewer view.
+- **Cash-flow engine.** CSV validation, guessed-category provenance with user corrections, income tiers (UPI inflow is never "verified income"), unknown-is-not-zero, kept out of the risk model on purpose.
+- **What-if and counterfactuals.** Only controllable terms change; income, age and history never; hypothetical debt reduction is labelled; "no feasible alternative" is a valid answer.
+- **Fairness audit.** Fairlearn metrics with 95% intervals, small-group warnings, a mitigation experiment that is analysed but **not deployed**.
+- **Human review and governance.** Accounts with roles, applicant -> reviewer workflow as a state machine, mandatory override reasons, model registry with checksums, monitoring, hash-chained audit trail.
 
 ## Quick start (Windows PowerShell)
 ```powershell
-# 1. In the backend folder: check that every file is present
+# 1. Backend: check files, create the environment, install (first time; shap/scikit-learn take a few minutes)
 cd backend
 python check_setup.py
-
-# 2. Create the environment and install (first time only; shap/scikit-learn take a few minutes)
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
-# 3. Put the UCI dataset in backend\data (see "Public-data model" below), then test
-python -m pytest -q          # 151 passed with the dataset, 150 passed + 1 skipped without it
+# 2. Test and train (the UCI dataset is optional, see "Public-data model" below)
+python -m pytest -q                 # 210 passed with the dataset; 209 passed + 1 skipped without it
+python -m app.train                 # loan model (synthetic data), about 10 seconds
 
-# 4. Train and generate reports (needs the dataset for the last four)
-python -m app.train
-python -m app.public_train
-python -m app.fairness
-python -m app.experiments
-python -m app.model_card
+# 3. Create the database, register the model, create demo staff accounts (passwords are printed ONCE)
+python -m app.admin init
 
-# 5. Run the API (window 1)
+# 4. Run the API (window 1)
 uvicorn app.main:app --reload
 
-# 6. Run the website (window 2)
+# 5. Run the website (window 2)
 cd ..\frontend
 copy .env.example .env.local
 npm install
-npm run dev                  # open http://localhost:3000  (not 127.0.0.1)
+npm run dev                         # open http://localhost:3000   (use localhost, not 127.0.0.1)
 ```
-Tip: keep the repo outside OneDrive (for example `C:\dev\creditlens-xai`). OneDrive can lock or slow thousands of `venv` and `node_modules` files.
+**Using it:** register as an applicant, create an application, upload `sample_data\SYNTHETIC_salaried_stable.csv`, run a preview, submit. Log out and log in as `reviewer@demo.local` (password from `admin init`) to record a decision. Log in as `admin@demo.local` for model versions, monitoring and the audit-chain check.
 
-## Setup (Windows PowerShell) — run from the `backend` folder
-```powershell
-cd creditlens-xai\backend
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m pytest -q          # run tests
-python -m app.train          # train + write models/ and reports/
-uvicorn app.main:app --reload  # API at http://127.0.0.1:8000/docs
+> Keep the repo outside OneDrive (for example `C:\dev\creditlens-xai`): OneDrive can lock or slow the thousands of files in `venv` and `node_modules`. Cookies need the site and the API on the same site: use `localhost` for both.
+
+### Public-data model (optional, needs the dataset)
+1. Download the UCI file (CC BY 4.0): <https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients>
+2. Put `default of credit card clients.xls` in `backend\data\` (git-ignored; never committed).
+3. From `backend`: `python -m app.public_train`, then `python -m app.fairness`, `python -m app.experiments`, `python -m app.model_card`.
+
+## Project structure
 ```
-If activation is blocked: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
-
-## Example request
-```powershell
-$body = '{"monthly_income":50000,"loan_amount":300000,"tenure_months":36,"annual_interest_rate":12,"existing_emi":5000,"age":32,"employment_years":5,"num_existing_loans":1,"credit_history_months":null}'
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/predict -ContentType "application/json" -Body $body
+backend/    FastAPI app (app/), tests (tests/), Alembic migrations (migrations/), CLI (python -m app.admin)
+frontend/   Next.js 16 + TypeScript + Tailwind, 24 components, 86 tests
+sample_data/  fictional transaction CSVs (4 personas + a deliberately messy file)
+docs/       guides, architecture, deployment, security, model cards, methodology, screenshots
+e2e/        optional Playwright journey test
+render.yaml Render Blueprint (API + PostgreSQL)
 ```
+Full annotated tree: [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md).
 
-## Stage 2 endpoints (no auth yet — do not expose publicly)
-- `POST /api/v1/uploads/preview` — multipart `file` (+ optional `mapping`, `corrections` JSON) -> parsed rows, issues, categories
-- `POST /api/v1/cashflow/analyze` — same inputs -> coverage, monthly table, metrics, recurring income, missingness
-- `GET /api/v1/transactions/categories`
-Samples are in `sample_data/` (all synthetic). Method: `docs/cashflow_methodology.md`.
+## Documentation
+| Document | Read it for |
+|---|---|
+| [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) | Every concept, the tech stack and why, structure, business view, future work |
+| [`docs/INTERVIEW_QA.md`](docs/INTERVIEW_QA.md) | Interview questions and answers for every part of the project |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Diagrams: system, request flow, state machine, data model, ML pipeline |
+| [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | GitHub -> Render (API) + Vercel (website), step by step, troubleshooting |
+| [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) | 7-minute demo and recording plan |
+| [`docs/security_and_workflow.md`](docs/security_and_workflow.md), [`docs/security_review.md`](docs/security_review.md) | Roles, controls that exist and do not, tools run, findings |
+| [`docs/model_cards/`](docs/model_cards) | Generated model cards (loan model, public-data model) |
+| [`docs/explainability.md`](docs/explainability.md), [`docs/scenarios.md`](docs/scenarios.md), [`docs/fairness_and_experiments.md`](docs/fairness_and_experiments.md), [`docs/cashflow_methodology.md`](docs/cashflow_methodology.md) | Method notes |
+| [`docs/dataset_provenance.md`](docs/dataset_provenance.md), data dictionaries | Data sources, licences, field definitions |
 
-## Frontend (Next.js) — see `frontend/README.md`
-```powershell
-cd creditlens-xai\frontend
-copy .env.example .env.local
-npm install
-npm run dev        # open http://localhost:3000 (not 127.0.0.1), with the backend running on port 8000
-```
-Pages: loan simulation, public-data model, cash-flow upload with category corrections, model evaluation dashboard.
+## Quality evidence
+- **296 automated tests:** 210 backend (pytest) and 86 frontend (Vitest + Testing Library). The database tests also pass on **PostgreSQL 16**, via `CREDITLENS_TEST_DATABASE_URL`.
+- Black-box sweeps prove all **44 API routes** refuse anonymous callers and enforce roles.
+- Static and dependency analysis: Bandit (0 issues), pip-audit and npm audit (no project dependency flagged). Details in `docs/security_review.md`.
+- A real-browser run of the full journey (register -> upload -> preview -> submit -> review -> decision -> admin audit) was performed on Linux with Chromium. **Not run on Windows by the author**, and the GitHub Actions workflow has not yet run on GitHub.
+- Code coverage has not been measured.
 
-## What-if, fairness and experiments
-```powershell
-cd backend
-python -m app.fairness       # needs python -m app.public_train first
-python -m app.experiments
-```
-Pages: `/scenarios`, `/fairness`, and an experiments section on `/models`. Docs: `docs/scenarios.md`, `docs/fairness_and_experiments.md`.
-The fairness report uses sensitive attributes for auditing only; restrict access once accounts exist.
+## Deploying
+Documented path: Render (API + PostgreSQL via `render.yaml`) and Vercel (website, proxying `/api/*`); see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). The author has prepared and tested this path locally but has not deployed it yet; add your live URL here once you have.
 
-## Explanations and model cards
-SHAP explanations are returned by the predict endpoints (`?detail=summary|full`); see `docs/explainability.md`.
-Generate model cards from your trained models: `python -m app.model_card` (writes `docs/model_cards/`).
-**Retrain after updating** (`python -m app.train`, `python -m app.public_train`): artifacts now carry explanation data.
+## Limitations (read these)
+Synthetic loan data; single-snapshot 2005 public data with random splits only; unvalidated demonstration thresholds; no MFA, password reset, IP rate limiting, Content-Security-Policy or encryption at rest; free-tier hosting caveats; no independent security review. See [`docs/security_and_workflow.md`](docs/security_and_workflow.md).
 
-## Public-data model (Track A) — dataset not committed
-1. Download the UCI file (CC BY 4.0): https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients
-2. Put `default of credit card clients.xls` in `backend\data\` (gitignored).
-3. `python -m app.public_train` (from `backend`), then `POST /api/v1/assessments/predict-public`.
-Details: `docs/dataset_provenance.md`, `docs/public_data_dictionary.md`, `docs/public_model_evaluation.md`.
-Without the file, the rest of the test suite still runs (one real-file test is skipped).
-
-## Data attribution
-Public-data model uses *Default of Credit Card Clients* by I-Cheng Yeh (2009), UCI Machine Learning Repository,
-CC BY 4.0 — https://doi.org/10.24432/C55S3H
-
-## Key design points
-- One feature function (`app/features.py`) is used by training and inference (fixes the old EMI-ratio mismatch).
-- Four splits: train / calibration / validation / untouched test. Model and calibrator are chosen on validation Brier score; test is evaluated once.
-- Unknown credit history is represented explicitly, never as zero.
-- The API returns `explanation: unavailable` until real SHAP is implemented — no fake explanations.
-- Model files are pickles: only load artifacts you trained yourself.
-
-## Not implemented yet / known limits
-No authentication (do not expose publicly), no database, no real-data model, no explanations,
-no fairness analysis, no frontend in this repo snapshot, CI workflow not yet run on GitHub.
-See `docs/` for the data dictionary and dataset provenance.
+## Licence and attribution
+Code: MIT (see `LICENSE`). The optional public-data model uses *Default of Credit Card Clients* by I-Cheng Yeh (2009), UCI Machine Learning Repository, **CC BY 4.0**, <https://doi.org/10.24432/C55S3H>. The dataset is not included in this repository.

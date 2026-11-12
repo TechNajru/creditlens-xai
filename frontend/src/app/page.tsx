@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 const CARDS = [
+  { href: "/dashboard", title: "My applications", text: "Create a draft, upload a transaction CSV, preview the assessment, submit for human review and track the outcome." },
   { href: "/assess", title: "Loan simulation", text: "Enter a loan application and see a calibrated simulated risk estimate with an explanation. Trained on synthetic data." },
   { href: "/assess-public", title: "Public-data model", text: "A separate model trained on the public UCI credit-card dataset (Taiwan, 2005)." },
   { href: "/scenarios", title: "What-if & alternatives", text: "Change loan amount or tenure, compare scenarios, and search for alternatives that meet a demonstration policy. Simulation only." },
@@ -42,7 +43,7 @@ export default function Home() {
       <section aria-labelledby="status-h" className="text-sm text-slate-600 dark:text-slate-300">
         <h2 id="status-h" className="mb-1 text-base font-semibold text-inherit">Status</h2>
         <p>Implemented: shared feature engineering, calibration, SHAP explanations, CSV cash-flow analysis, evaluation dashboard,
-          what-if and counterfactuals, fairness audit, limited-information experiments. Not built yet: accounts and roles, reviewer workflow, audit trail.</p>
+          what-if and counterfactuals, fairness audit, limited-information experiments, accounts with roles, application history, human reviewer workflow and a tamper-evident audit trail. Log in or register to use the tools.</p>
       </section>
     </div>
   );

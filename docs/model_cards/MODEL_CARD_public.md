@@ -1,4 +1,4 @@
-# Model card — Public-data credit-card default model (UCI)
+# Model card â€” Public-data credit-card default model (UCI)
 
 > Educational prototype. Not a lender, not a credit score, not a loan approval.
 
@@ -6,8 +6,8 @@
 - Version: `uci-hist_gradient_boosting-sigmoid-seed42-public-1.0.0`
 - Algorithm: hist_gradient_boosting; probability calibration: sigmoid (calibration evaluated: yes)
 - Feature schema: public-1.0.0 (23 features)
-- Trained (UTC): 2026-11-06T17:39:48+00:00; seed 42
-- Libraries: Python 3.14.7, scikit-learn 1.9.1, pandas 3.1.0, numpy 2.5.4
+- Trained (UTC): 2026-11-04T19:56:21+00:00; seed 42
+- Libraries: Python 3.12.3, scikit-learn 1.9.1, pandas 3.1.0, numpy 2.5.4
 
 ## Intended use
 Educational exploration of calibrated, explainable default-risk modelling on a public credit-card dataset.

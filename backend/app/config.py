@@ -39,3 +39,38 @@ PUBLIC_ARTIFACT_NAME = "creditlens_public_model.joblib"
 
 def data_dir() -> Path:
     return Path(os.getenv("CREDITLENS_DATA_DIR", BASE_DIR / "data"))
+
+
+# ---------------- Stage 5: database, sessions, registry ----------------
+def normalize_database_url(url: str) -> str:
+    """Hosting providers hand out postgres:// or postgresql:// URLs; SQLAlchemy needs the driver name (psycopg 3)."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
+def database_url() -> str:
+    default = f"sqlite:///{(BASE_DIR / 'data' / 'creditlens.db').as_posix()}"
+    return normalize_database_url(os.getenv("CREDITLENS_DATABASE_URL", default))
+
+
+def registry_dir() -> Path:
+    return Path(os.getenv("CREDITLENS_REGISTRY_DIR", models_dir() / "registry"))
+
+
+def session_hours() -> int:
+    return int(os.getenv("CREDITLENS_SESSION_HOURS", "8"))
+
+
+def cookie_secure() -> bool:
+    """Set CREDITLENS_COOKIE_SECURE=true when serving over HTTPS (required in any real deployment)."""
+    return os.getenv("CREDITLENS_COOKIE_SECURE", "false").strip().lower() in ("1", "true", "yes")
+
+
+def max_failed_logins() -> int:
+    return int(os.getenv("CREDITLENS_MAX_FAILED_LOGINS", "5"))
+
+
+def lockout_minutes() -> int:
+    return int(os.getenv("CREDITLENS_LOCKOUT_MINUTES", "15"))

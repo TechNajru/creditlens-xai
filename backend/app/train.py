@@ -112,7 +112,8 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
     X_ca, y_ca = splits["calibration"]
     X_va, y_va = splits["validation"]
     X_te, y_te = splits["test"]
-    assert TARGET_COLUMN not in X_tr.columns and list(X_tr.columns) == FEATURE_COLUMNS
+    if TARGET_COLUMN in X_tr.columns or list(X_tr.columns) != FEATURE_COLUMNS:    # explicit check: asserts vanish under python -O
+        raise ValueError("Leakage guard failed: the target is in the features, or the feature order changed.")
 
     # 1) fit models on train; 2) fit calibrators on calibration; 3) score on validation
     fitted, candidate_table = {}, []
@@ -192,6 +193,7 @@ def train(models_dir: Path | None = None, reports_dir: Path | None = None,
         "majority_baseline": baseline,
         "calibration_curve_test": {"mean_predicted": mean_pred.tolist(), "fraction_positive": frac_pos.tolist()},
         "global_importance": global_importance,
+        "limitations": metadata["limitations"],
         "notes": "Test split used once, after selection on the validation split.",
     }
     (reports_dir / "evaluation.json").write_text(json.dumps(report, indent=2))

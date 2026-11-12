@@ -1,0 +1,35 @@
+# Render Blueprint: the API (FastAPI) + a PostgreSQL database.  See docs/DEPLOYMENT.md for the full walkthrough.
+# The website is deployed separately on Vercel and proxies /api/* to this service (same-origin cookies).
+databases:
+  - name: creditlens-db
+    plan: free              # free Postgres expires after 30 days (see docs/DEPLOYMENT.md); upgrade or move the DB for anything lasting
+    databaseName: creditlens
+    user: creditlens
+    region: singapore
+
+services:
+  - type: web
+    name: creditlens-api
+    runtime: python
+    plan: free              # free web services sleep after ~15 min idle and have an ephemeral filesystem
+    region: singapore       # keep the same region as the database
+    # Build: install pinned dependencies, then TRAIN the simulation model from source (about 10 s; seeded, reproducible).
+    buildCommand: pip install -r backend/requirements.txt && cd backend && python -m app.train
+    # Start: idempotent bootstrap (migrations, register+activate the model, first admin from env), then the API.
+    startCommand: cd backend && python -m app.admin bootstrap && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: CREDITLENS_DATABASE_URL
+        fromDatabase:
+          name: creditlens-db
+          property: connectionString
+      - key: CREDITLENS_COOKIE_SECURE
+        value: "true"
+      - key: CREDITLENS_CORS_ORIGINS
+        sync: false          # set after the first Vercel deploy, e.g. https://creditlens-xai.vercel.app (exact origin, no trailing slash)
+      - key: CREDITLENS_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: CREDITLENS_BOOTSTRAP_ADMIN_PASSWORD
+        sync: false          # a long passphrase you choose; never commit it
