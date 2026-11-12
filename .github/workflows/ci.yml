@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
       - run: pip install bandit
       - run: bandit -r backend/app -ll          # fail on medium or high findings
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - run: npm ci && npm audit --omit=dev --audit-level=high
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
